@@ -1,0 +1,64 @@
+# =========================
+# DATASETS
+# =========================
+data/
+
+# =========================
+# PYTHON
+# =========================
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Conda
+.conda/
+
+# =========================
+# JUPYTER
+# =========================
+.ipynb_checkpoints/
+
+# =========================
+# TRAINED MODELS / LARGE FILES
+# =========================
+models/*.pkl
+models/*.joblib
+models/*.h5
+models/*.keras
+models/*.pt
+models/*.pth
+models/*.onnx
+
+# =========================
+# SECRETS / ENVIRONMENT
+# =========================
+.env
+.env.*
+!.env.example
+
+# API keys
+*.pem
+*.key
+
+# =========================
+# OS / EDITOR
+# =========================
+.DS_Store
+Thumbs.db
+.vscode/
+
+# =========================
+# LOGS
+# =========================
+*.log
+
+# =========================
+# TEMPORARY FILES
+# =========================
+*.tmp
+*.temp
