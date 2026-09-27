@@ -10,11 +10,20 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 
 from src.feature_collector import FeatureCollector
 from src.interaction_features import InteractionTracker
+from fastapi.middleware.cors import CORSMiddleware
 
 
 load_dotenv()
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # -------------------------
@@ -205,8 +214,18 @@ Include examples and implementation details when useful.
     tracker.update_response_time(response_time)
 
 
+    # Convert Gemini response into plain text
+    if isinstance(response.content, str):
+        response_text = response.content
+    else:
+        response_text = "".join(
+            block.get("text", "")
+            for block in response.content
+            if isinstance(block, dict)
+        )
+
     return {
-        "response": response.content,
+        "response": response_text,
         "cognitive_load": cognitive_load,
         "features": features
     }

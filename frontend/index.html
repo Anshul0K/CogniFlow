@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>CogniFlow</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div class="app">
+
+        <!-- Header -->
+        <header class="header">
+            <div>
+                <h1>CogniFlow</h1>
+                <p>Cognitive-Load-Aware AI Interaction</p>
+            </div>
+
+            <div class="load-status">
+                <span id="load-dot"></span>
+                <span id="load-text">Waiting</span>
+            </div>
+        </header>
+
+
+        <!-- Main content -->
+        <main class="main">
+
+            <!-- Chat -->
+            <section class="chat-section">
+
+                <div id="chat-box" class="chat-box">
+
+                    <div class="message assistant">
+                        <div class="message-label">
+                            CogniFlow
+                        </div>
+
+                        <div class="message-content">
+                            Hello! Ask me anything.
+                        </div>
+                    </div>
+
+                </div>
+
+
+                <!-- Input -->
+                <div class="input-area">
+
+                    <textarea
+                        id="prompt"
+                        placeholder="Type your message..."
+                        rows="2"
+                    ></textarea>
+
+                    <button id="send-btn">
+                        Send
+                    </button>
+
+                </div>
+
+            </section>
+
+
+            <!-- Cognitive state -->
+            <aside class="sidebar">
+
+                <h2>Cognitive State</h2>
+
+                <div class="load-card">
+
+                    <div class="load-title">
+                        Current Load
+                    </div>
+
+                    <div id="load-value">
+                        —
+                    </div>
+
+                </div>
+
+
+                <div class="feature-section">
+
+                    <h3>Webcam</h3>
+
+                    <div class="feature">
+                        <span>Blink rate</span>
+                        <span id="blink-rate">—</span>
+                    </div>
+
+                    <div class="feature">
+                        <span>Eye openness</span>
+                        <span id="eye-openness">—</span>
+                    </div>
+
+                    <div class="feature">
+                        <span>Gaze movement</span>
+                        <span id="gaze-movement">—</span>
+                    </div>
+
+                </div>
+
+
+                <div class="feature-section">
+
+                    <h3>Keyboard</h3>
+
+                    <div class="feature">
+                        <span>Typing speed</span>
+                        <span id="typing-speed">—</span>
+                    </div>
+
+                    <div class="feature">
+                        <span>Pause count</span>
+                        <span id="pause-count">—</span>
+                    </div>
+
+                    <div class="feature">
+                        <span>Backspace rate</span>
+                        <span id="backspace-rate">—</span>
+                    </div>
+
+                </div>
+
+
+                <div class="feature-section">
+
+                    <h3>Interaction</h3>
+
+                    <div class="feature">
+                        <span>Response time</span>
+                        <span id="response-time">—</span>
+                    </div>
+
+                    <div class="feature">
+                        <span>Interaction rate</span>
+                        <span id="interaction-rate">—</span>
+                    </div>
+
+                </div>
+
+            </aside>
+
+        </main>
+
+    </div>
+
+
+    <script src="app.js"></script>
+
+</body>
+
+</html>
