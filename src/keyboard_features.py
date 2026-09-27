@@ -72,35 +72,33 @@ def calculate_features():
             "typing_variability": 0
         }
 
-    # Typing speed
+    # Ignore very long gaps caused by thinking/not typing
+    typing_intervals = [
+        x for x in intervals
+        if x < 2.0
+    ]
 
-    typing_speed_wpm = len(keys) / 5 / (10 / 60)
+    pauses = [
+        x for x in intervals
+        if 1.0 <= x < 5.0
+    ]
 
-    # Key hold
+    typing_speed_wpm = len(keys) / 5
 
     mean_key_hold_ms = (
         np.mean(holds) * 1000
         if holds else 0
     )
 
-    # Inter-key interval
-
     mean_interkey_interval_ms = (
-        np.mean(intervals) * 1000
-        if intervals else 0
+        np.mean(typing_intervals) * 1000
+        if typing_intervals else 0
     )
 
     interkey_interval_std = (
-        np.std(intervals) * 1000
-        if intervals else 0
+        np.std(typing_intervals) * 1000
+        if typing_intervals else 0
     )
-
-    # Pauses
-
-    pauses = [
-        x for x in intervals
-        if x > 1.0
-    ]
 
     typing_pause_count = len(pauses)
 
@@ -109,22 +107,16 @@ def calculate_features():
         if pauses else 0
     )
 
-    # Backspace
-
     backspaces = sum(
         1 for key in keys
         if key == keyboard.Key.backspace
     )
 
-    backspace_rate = (
-        backspaces / len(keys)
-    )
-
-    # Typing variability
+    backspace_rate = backspaces / len(keys)
 
     typing_variability = (
-        np.std(intervals) / np.mean(intervals)
-        if intervals and np.mean(intervals) > 0
+        np.std(typing_intervals) / np.mean(typing_intervals)
+        if typing_intervals and np.mean(typing_intervals) > 0
         else 0
     )
 

@@ -1,8 +1,8 @@
 import time
 import threading
 
-from webcam_features import get_webcam_features
-from keyboard_features import (
+from src.webcam_features import get_webcam_features
+from src.keyboard_features import (
     calculate_features,
     start_keyboard_listener
 )
