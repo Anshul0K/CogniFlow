@@ -1,26 +1,7 @@
 from pynput import keyboard
 import time
 import numpy as np
-import joblib
 import threading
-
-
-# -------------------------
-# Load model
-# -------------------------
-
-model = joblib.load("models/cognitive_load_model.pkl")
-
-labels = {
-    0: "LOW",
-    1: "MEDIUM",
-    2: "HIGH"
-}
-
-
-# -------------------------
-# Keyboard data
-# -------------------------
 
 key_press_times = {}
 key_hold_times = []
@@ -28,70 +9,53 @@ key_intervals = []
 key_sequence = []
 
 last_key_time = None
-
 lock = threading.Lock()
-running = True
 
-
-# -------------------------
-# Key press
-# -------------------------
 
 def on_press(key):
-
     global last_key_time
 
     now = time.time()
 
     with lock:
-
         if key not in key_press_times:
             key_press_times[key] = now
 
         if last_key_time is not None:
-            key_intervals.append(
-                now - last_key_time
-            )
+            key_intervals.append(now - last_key_time)
 
         last_key_time = now
         key_sequence.append(key)
 
 
-# -------------------------
-# Key release
-# -------------------------
-
 def on_release(key):
-
-    global running
-
     now = time.time()
 
     with lock:
-
         if key in key_press_times:
             key_hold_times.append(
                 now - key_press_times.pop(key)
             )
 
-    if key == keyboard.Key.esc:
-        running = False
-        return False
 
+def start_keyboard_listener():
+    listener = keyboard.Listener(
+        on_press=on_press,
+        on_release=on_release
+    )
 
-# -------------------------
-# Calculate features
-# -------------------------
+    listener.start()
+
+    return listener
+
 
 def calculate_features():
 
     with lock:
-
         keys = key_sequence.copy()
         holds = key_hold_times.copy()
         intervals = key_intervals.copy()
 
-        # Reset current window
         key_sequence.clear()
         key_hold_times.clear()
         key_intervals.clear()
@@ -119,7 +83,7 @@ def calculate_features():
         if holds else 0
     )
 
-    # Inter-key intervals
+    # Inter-key interval
 
     mean_interkey_interval_ms = (
         np.mean(intervals) * 1000
@@ -145,7 +109,7 @@ def calculate_features():
         if pauses else 0
     )
 
-    # Backspaces
+    # Backspace
 
     backspaces = sum(
         1 for key in keys
@@ -176,81 +140,20 @@ def calculate_features():
     }
 
 
-# -------------------------
-# Main
-# -------------------------
+if __name__ == "__main__":
 
-print("Keyboard tracking started.")
-print("Type normally.")
-print("Features will update every 10 seconds.")
-print("Press ESC to stop.\n")
+    print("Keyboard listener started.")
+    print("Type for 10 seconds...")
 
-
-listener = keyboard.Listener(
-    on_press=on_press,
-    on_release=on_release
-)
-
-listener.start()
-
-
-while running:
+    listener = start_keyboard_listener()
 
     time.sleep(10)
 
-    if not running:
-        break
-
     features = calculate_features()
 
-    print("\n==============================")
-    print("LIVE KEYBOARD FEATURES")
-    print("==============================")
+    listener.stop()
+
+    print("\n--- Keyboard Features ---")
 
     for key, value in features.items():
         print(f"{key}: {value:.4f}")
-
-    # -------------------------
-    # Temporary model prediction
-    # -------------------------
-    #
-    # Webcam + interaction values
-    # are still temporary.
-    #
-
-    values = [[
-
-        # Webcam
-        15,
-        0.40,
-        0.05,
-        0.002,
-        0.002,
-        0.00001,
-
-        # Keyboard
-        features["typing_speed_wpm"],
-        features["mean_key_hold_ms"],
-        features["mean_interkey_interval_ms"],
-        features["interkey_interval_std"],
-        features["typing_pause_count"],
-        features["mean_pause_duration_ms"],
-        features["backspace_rate"],
-        features["typing_variability"],
-
-        # Interaction
-        5,
-        10,
-        2,
-        0.5,
-        5,
-        20,
-        0.5
-    ]]
-
-    prediction = model.predict(values)[0]
-
-    cognitive_load = labels[prediction]
-
-    print("\nCognitive Load:", cognitive_load)
-    print("==============================")
