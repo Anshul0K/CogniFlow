@@ -2,12 +2,22 @@ import cv2
 import mediapipe as mp
 import numpy as np
 import time
+import joblib
 
 mp_face = mp.solutions.face_mesh
 
-# MediaPipe eye landmarks
+
+model = joblib.load("models/cognitive_load_model.pkl")
+
+labels = {
+    0: "LOW",
+    1: "MEDIUM",
+    2: "HIGH"
+}
+
 LEFT_EYE = [33, 160, 158, 133, 153, 144]
 RIGHT_EYE = [362, 385, 387, 263, 373, 380]
+
 
 def eye_aspect_ratio(landmarks, eye):
     p1 = np.array([landmarks[eye[1]].x, landmarks[eye[1]].y])
@@ -24,142 +34,115 @@ def eye_aspect_ratio(landmarks, eye):
     )
 
 
-cap = cv2.VideoCapture(0)
+def get_webcam_features():
 
-eye_values = []
-blink_count = 0
-last_blink = False
+    cap = cv2.VideoCapture(0)
 
-start_time = time.time()
+    eye_values = []
+    blink_count = 0
+    last_blink = False
 
-prev_head_x = None
-head_movements = []
+    head_movements = []
+    gaze_movements = []
 
-prev_gaze = None
-gaze_movements = []
+    prev_head = None
+    prev_gaze = None
 
-with mp_face.FaceMesh(
-    max_num_faces=1,
-    refine_landmarks=True,
-    min_detection_confidence=0.5,
-    min_tracking_confidence=0.5
-) as face_mesh:
+    window_start = time.time()
 
-    while True:
-        ret, frame = cap.read()
+    with mp_face.FaceMesh(
+        max_num_faces=1,
+        refine_landmarks=True,
+        min_detection_confidence=0.5,
+        min_tracking_confidence=0.5
+    ) as face_mesh:
 
-        if not ret:
-            break
+        while True:
 
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        results = face_mesh.process(rgb)
+            ret, frame = cap.read()
 
-        if results.multi_face_landmarks:
+            if not ret:
+                print("Camera error")
+                break
 
-            landmarks = results.multi_face_landmarks[0].landmark
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            results = face_mesh.process(rgb)
 
-            # Approximate gaze movement using iris position
-            left_iris = np.array([
-                landmarks[468].x,
-                landmarks[468].y
-            ])
+            if results.multi_face_landmarks:
 
-            right_iris = np.array([
-                landmarks[473].x,
-                landmarks[473].y
-            ])
+                landmarks = results.multi_face_landmarks[0].landmark
 
-            gaze = (left_iris + right_iris) / 2
+                # ---------------- GAZE ----------------
 
-            if prev_gaze is not None:
-                gaze_movement = np.linalg.norm(gaze - prev_gaze)
-                gaze_movements.append(gaze_movement)
+                left_iris = np.array([
+                    landmarks[468].x,
+                    landmarks[468].y
+                ])
 
-            prev_gaze = gaze
+                right_iris = np.array([
+                    landmarks[473].x,
+                    landmarks[473].y
+                ])
 
-            gaze_movement_rate = (
-                np.mean(gaze_movements)
-                if gaze_movements else 0
-            )
+                gaze = (left_iris + right_iris) / 2
 
-            cv2.putText(
-                frame,
-                f"Gaze movement: {gaze_movement_rate:.5f}",
-                (20, 190),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (0, 255, 0),
-                2
-            )
+                if prev_gaze is not None:
+                    gaze_movements.append(
+                        np.linalg.norm(gaze - prev_gaze)
+                    )
 
+                prev_gaze = gaze
 
-            nose_x = landmarks[1].x
-            nose_y = landmarks[1].y
+                # ---------------- HEAD ----------------
 
-            if prev_head_x is not None:
-                movement = np.sqrt(
-                    (nose_x - prev_head_x[0]) ** 2 +
-                    (nose_y - prev_head_x[1]) ** 2
+                head = np.array([
+                    landmarks[1].x,
+                    landmarks[1].y
+                ])
+
+                if prev_head is not None:
+                    head_movements.append(
+                        np.linalg.norm(head - prev_head)
+                    )
+
+                prev_head = head
+
+                # ---------------- EYES ----------------
+
+                left_ear = eye_aspect_ratio(
+                    landmarks,
+                    LEFT_EYE
                 )
-                head_movements.append(movement)
 
-            prev_head_x = (nose_x, nose_y)
+                right_ear = eye_aspect_ratio(
+                    landmarks,
+                    RIGHT_EYE
+                )
 
-            head_movement_rate = np.mean(head_movements) if head_movements else 0
-            head_pose_variance = np.var(head_movements) if head_movements else 0
+                eye_openness = (
+                    left_ear + right_ear
+                ) / 2
 
-            cv2.putText(
-                frame,
-                f"Head movement: {head_movement_rate:.4f}",
-                (20, 130),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (0, 255, 0),
-                2
-            )
+                eye_values.append(eye_openness)
 
-            cv2.putText(
-                frame,
-                f"Head variance: {head_pose_variance:.6f}",
-                (20, 160),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (0, 255, 0),
-                2
-            )
+                # ---------------- BLINK ----------------
 
-            left_ear = eye_aspect_ratio(landmarks, LEFT_EYE)
-            right_ear = eye_aspect_ratio(landmarks, RIGHT_EYE)
+                is_blinking = eye_openness < 0.20
 
-            eye_openness = (left_ear + right_ear) / 2
-            eye_values.append(eye_openness)
+                if is_blinking and not last_blink:
+                    blink_count += 1
 
-            eye_openness_std = np.std(eye_values)
+                last_blink = is_blinking
+
+            # ---------------- TIMER ----------------
+
+            elapsed = time.time() - window_start
+
+            remaining = max(0, 10 - elapsed)
 
             cv2.putText(
                 frame,
-                f"Eye variability: {eye_openness_std:.3f}",
-                (20, 100),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (0, 255, 0),
-                2
-            )
-
-            # Simple blink detection
-            is_blinking = eye_openness < 0.20
-
-            if is_blinking and not last_blink:
-                blink_count += 1
-
-            last_blink = is_blinking
-
-            elapsed = time.time() - start_time
-            blink_rate = blink_count / max(elapsed, 1) * 60
-
-            cv2.putText(
-                frame,
-                f"Eye openness: {eye_openness:.3f}",
+                f"Next analysis: {remaining:.1f}s",
                 (20, 40),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.7,
@@ -169,7 +152,7 @@ with mp_face.FaceMesh(
 
             cv2.putText(
                 frame,
-                f"Blink rate: {blink_rate:.1f}/min",
+                "Press Q to quit",
                 (20, 70),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.7,
@@ -177,10 +160,107 @@ with mp_face.FaceMesh(
                 2
             )
 
-        cv2.imshow("CogniFlow Webcam", frame)
+            cv2.imshow(
+                "CogniFlow Webcam",
+                frame
+            )
 
-        if cv2.waitKey(1) & 0xFF == ord("q"):
-            break
+            # ---------------- EVERY 10 SECONDS ----------------
 
-cap.release()
-cv2.destroyAllWindows()
+            if elapsed >= 10:
+
+                features = {
+                    "blink_rate_per_min":
+                        blink_count / elapsed * 60,
+
+                    "mean_eye_openness":
+                        np.mean(eye_values)
+                        if eye_values else 0,
+
+                    "eye_openness_std":
+                        np.std(eye_values)
+                        if eye_values else 0,
+
+                    "gaze_movement_rate":
+                        np.mean(gaze_movements)
+                        if gaze_movements else 0,
+
+                    "head_movement_rate":
+                        np.mean(head_movements)
+                        if head_movements else 0,
+
+                    "head_pose_variance":
+                        np.var(head_movements)
+                        if head_movements else 0
+                }
+
+
+
+                values = [[
+                    features["blink_rate_per_min"],
+                    features["mean_eye_openness"],
+                    features["eye_openness_std"],
+                    features["gaze_movement_rate"],
+                    features["head_movement_rate"],
+                    features["head_pose_variance"],
+
+                    # temporary keyboard values
+                    45,
+                    70,
+                    200,
+                    100,
+                    2,
+                    1500,
+                    0.05,
+                    1.0,
+
+                    # temporary interaction values
+                    5,
+                    10,
+                    2,
+                    0.5,
+                    5,
+                    20,
+                    0.5
+                ]]
+
+                prediction = model.predict(values)[0]
+
+                cognitive_load = labels[prediction]
+
+                print("Cognitive Load:", cognitive_load)
+
+                print("\n==============================")
+                print("LIVE WEBCAM FEATURES")
+                print("==============================")
+
+                for key, value in features.items():
+                    print(f"{key}: {value:.6f}")
+
+                print("==============================\n")
+
+                # Reset window
+
+                eye_values = []
+                blink_count = 0
+                last_blink = False
+
+                head_movements = []
+                gaze_movements = []
+
+                prev_head = None
+                prev_gaze = None
+
+                window_start = time.time()
+
+            # ---------------- QUIT ----------------
+
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+
+if __name__ == "__main__":
+    get_webcam_features()
